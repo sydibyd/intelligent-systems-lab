@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+*.token
+
+# Generated/local media
+MusicPipeline/
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.lrc
+*.json
+
+# Logs
+logs/
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/
