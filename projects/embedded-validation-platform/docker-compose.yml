@@ -1,10 +1,28 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: evap
+      POSTGRES_USER: evap
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-evap_dev}
+    volumes:
+      - evap_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evap -d evap"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   backend:
     build: ./backend
     restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://evap:${DB_PASSWORD:-evap_dev}@db:5432/evap
     ports:
       - "127.0.0.1:8000:8000"
-
+    depends_on:
+      db:
+        condition: service_healthy
   frontend:
     build: ./frontend
     restart: unless-stopped
@@ -12,3 +30,5 @@ services:
       - "127.0.0.1:8080:80"
     depends_on:
       - backend
+volumes:
+  evap_postgres:

@@ -1,108 +1,21 @@
-import React, {useEffect, useState} from "react";
-import {createRoot} from "react-dom/client";
-import "./style.css";
-
-function App() {
-  const [stats, setStats] = useState({});
-  const [requirements, setRequirements] = useState([]);
-  const [message, setMessage] = useState("");
-
-  const refresh = async () => {
-    const [s, r] = await Promise.all([
-      fetch("/api/dashboard").then(r => r.json()),
-      fetch("/api/requirements").then(r => r.json())
-    ]);
-    setStats(s);
-    setRequirements(r);
-  };
-
-  useEffect(() => { refresh().catch(console.error); }, []);
-
-  const upload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const form = new FormData();
-    form.append("file", file);
-
-    try {
-      const response = await fetch("/api/requirements/import", {
-        method: "POST",
-        body: form
-      });
-      const result = await response.json();
-      if (!response.ok) throw Error(result.detail);
-      setMessage(`${result.imported} requirements imported`);
-      await refresh();
-    } catch (error) {
-      setMessage(`Import error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="layout">
-      <aside>
-        <h2>EVAP</h2>
-        <p>VALIDATION PLATFORM</p>
-        <nav>
-          <div>◈ Dashboard</div>
-          <div>▤ Requirements</div>
-          <div>⚙ Test Management</div>
-          <div>◇ CI/CD Pipelines</div>
-          <div>▥ Reports</div>
-        </nav>
-        <footer>EVAP v0.1</footer>
-      </aside>
-
-      <main>
-        <header>
-          <div>
-            <h1>Validation Dashboard</h1>
-            <p>Embedded Software Validation Platform</p>
-          </div>
-          <span className="badge">● Development</span>
-        </header>
-
-        <section className="cards">
-          <article><span>Requirements</span><strong>{stats.requirements ?? 0}</strong></article>
-          <article><span>Test Cases</span><strong>{stats.test_cases ?? 0}</strong></article>
-          <article><span>Executed Tests</span><strong>{stats.executed_tests ?? 0}</strong></article>
-          <article><span>Pass Rate</span><strong>{stats.pass_rate == null ? "N/A" : `${stats.pass_rate}%`}</strong></article>
-        </section>
-
-        <section className="panel">
-          <h2>Software Requirements Import</h2>
-          <p>Import your Software Requirements Specification (SRS).</p>
-          <label className="upload">
-            Select Excel SRS (.xlsx)
-            <input type="file" accept=".xlsx" onChange={upload}/>
-          </label>
-          <p>{message}</p>
-        </section>
-
-        <section className="panel">
-          <h2>Requirements Explorer</h2>
-          <p>{requirements.length} requirements loaded</p>
-          <div className="tablewrap">
-            <table>
-              <thead>
-                <tr>
-                  {Object.keys(requirements[0] || {}).map(k => <th key={k}>{k}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {requirements.map((r, i) =>
-                  <tr key={i}>
-                    {Object.values(r).map((v, j) => <td key={j}>{v}</td>)}
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
+import React,{useEffect,useMemo,useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import './style.css';
+function App(){
+ const [page,setPage]=useState('Dashboard'),[stats,setStats]=useState({}),[reqs,setReqs]=useState([]),[tests,setTests]=useState([]),[imports,setImports]=useState([]),[q,setQ]=useState(''),[sub,setSub]=useState('All'),[selected,setSelected]=useState(null),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);
+ const get=async path=>{const r=await fetch('/api/'+path);if(!r.ok)throw Error(await r.text());return r.json()};
+ const refresh=async()=>{const [s,r,t,i]=await Promise.all(['dashboard','requirements','test-cases','imports'].map(get));setStats(s);setReqs(r);setTests(t);setImports(i)};
+ useEffect(()=>{refresh().catch(e=>setMsg(e.message))},[]);
+ const upload=async e=>{const file=e.target.files[0];if(!file)return;setBusy(true);setMsg('');try{const body=new FormData();body.append('file',file);const r=await fetch('/api/requirements/import',{method:'POST',body});const d=await r.json();if(!r.ok)throw Error(d.detail);await refresh();setMsg(`${d.imported} requirements and ${d.test_cases} test cases imported`)}catch(e){setMsg('Import error: '+e.message)}finally{setBusy(false);e.target.value=''}};
+ const subs=['All',...new Set(reqs.map(r=>r.Subsystem).filter(Boolean))];
+ const filtered=useMemo(()=>reqs.filter(r=>(sub==='All'||r.Subsystem===sub)&&Object.values(r).join(' ').toLowerCase().includes(q.toLowerCase())),[reqs,q,sub]);
+ const menu=['Dashboard','Requirements','Test Cases','Traceability','Import History'];
+ return <div className="layout"><aside><h2>EVAP</h2><small>VALIDATION PLATFORM</small><nav>{menu.map(m=><button className={page===m?'active':''} key={m} onClick={()=>setPage(m)}>{m}</button>)}</nav><footer>EVAP v0.2 · Development</footer></aside><main><header><div><h1>{page}</h1><p>A Universal CI/CD Validation Platform for Embedded Software Systems</p></div><span className="badge">● Development</span></header>
+ {page==='Dashboard'&&<><div className="cards">{[['Requirements',stats.requirements??0],['Test Cases',stats.test_cases??0],['Mapped Requirements',stats.mapped_requirements??0],['Mapping Coverage',stats.mapping_coverage==null?'N/A':stats.mapping_coverage+'%']].map(([k,v])=><article key={k}><span>{k}</span><strong>{v}</strong></article>)}</div><section className="panel"><h2>Software Requirements Import</h2><p>Import an Excel workbook containing Requirements_SRS and optionally Test_Cases.</p><label className="upload">{busy?'Importing...':'Select Excel SRS (.xlsx)'}<input type="file" accept=".xlsx" disabled={busy} onChange={upload}/></label><p role="status">{msg}</p></section><section className="panel"><h2>Validation status</h2><p>Test execution is not implemented yet. Mapping coverage does not indicate test pass rate.</p></section></>}
+ {page==='Requirements'&&<section className="panel"><h2>Requirements Explorer</h2><div className="filters"><input placeholder="Search requirements..." value={q} onChange={e=>setQ(e.target.value)}/><select value={sub} onChange={e=>setSub(e.target.value)}>{subs.map(s=><option key={s}>{s}</option>)}</select></div><p>{filtered.length} / {reqs.length} requirements</p><div className="tablewrap"><table><thead><tr>{['ID','Subsystem','Description','Priority','Status','Test ID'].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.Requirement_ID} onClick={()=>setSelected(r)} className="clickable"><td>{r.Requirement_ID}</td><td>{r.Subsystem}</td><td>{r.Description}</td><td>{r.Priority}</td><td>{r.Status}</td><td>{r.Test_ID}</td></tr>)}</tbody></table></div>{selected&&<div className="details"><button onClick={()=>setSelected(null)}>Close details ×</button><h3>{selected.Requirement_ID} — {selected.Description}</h3>{Object.entries(selected).map(([k,v])=><p key={k}><b>{k}:</b> {v}</p>)}</div>}</section>}
+ {page==='Test Cases'&&<section className="panel"><h2>Imported Test Cases</h2><div className="tablewrap"><table><thead><tr>{['Test ID','Requirement','Name','Environment','Status'].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{tests.map(t=><tr key={t.Test_ID}><td>{t.Test_ID}</td><td>{t.Requirement_ID}</td><td>{t.Test_Name}</td><td>{t.Environment}</td><td>{t.Status}</td></tr>)}</tbody></table></div></section>}
+ {page==='Traceability'&&<section className="panel"><h2>Requirement → Test Mapping</h2><p>Mapping is not evidence of successful execution.</p><div className="tablewrap"><table><thead><tr><th>Requirement</th><th>Associated Tests</th><th>Mapping</th></tr></thead><tbody>{reqs.map(r=>{const linked=tests.filter(t=>t.Requirement_ID===r.Requirement_ID);return <tr key={r.Requirement_ID}><td>{r.Requirement_ID}</td><td>{linked.map(t=>t.Test_ID).join(', ')||'—'}</td><td>{linked.length?'Mapped':'Unmapped'}</td></tr>})}</tbody></table></div></section>}
+ {page==='Import History'&&<section className="panel"><h2>Import History</h2><div className="tablewrap"><table><thead><tr><th>Filename</th><th>Requirements</th><th>Test Cases</th><th>Date</th></tr></thead><tbody>{imports.map(i=><tr key={i.id}><td>{i.filename}</td><td>{i.requirements_count}</td><td>{i.tests_count}</td><td>{new Date(i.imported_at).toLocaleString()}</td></tr>)}</tbody></table></div></section>}
+ </main></div>
 }
-
-createRoot(document.getElementById("root")).render(<App/>);
+createRoot(document.getElementById('root')).render(<App/>);
