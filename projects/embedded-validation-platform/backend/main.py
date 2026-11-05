@@ -6,7 +6,10 @@ from openpyxl import load_workbook
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title='EVAP API', version='0.2.0')
+from execution_api import router, initialize_execution_database
+
+app = FastAPI(title='EVAP API', version='0.3.0')
+app.include_router(router)
 DB = os.getenv('DATABASE_URL', 'postgresql://evap:evap_dev@db:5432/evap')
 
 @contextmanager
@@ -16,6 +19,7 @@ def conn():
 
 @app.on_event('startup')
 def init():
+    initialize_execution_database()
     with conn() as c:
         c.execute('CREATE TABLE IF NOT EXISTS requirements (id TEXT PRIMARY KEY, subsystem TEXT, description TEXT, priority TEXT, status TEXT, payload JSONB NOT NULL, updated_at TIMESTAMPTZ DEFAULT now())')
         c.execute('CREATE TABLE IF NOT EXISTS test_cases (id TEXT PRIMARY KEY, requirement_id TEXT REFERENCES requirements(id), name TEXT, environment TEXT, status TEXT, payload JSONB NOT NULL)')
@@ -24,7 +28,7 @@ def init():
 @app.get('/api/health')
 def health():
     with conn() as c: c.execute('SELECT 1')
-    return {'status':'ok','version':'0.2.0','database':'connected'}
+    return {'status':'ok','version':'0.3.0','database':'connected'}
 
 @app.get('/api/requirements')
 def requirements():
@@ -47,7 +51,28 @@ def dashboard():
         nr=c.execute('SELECT count(*) AS n FROM requirements').fetchone()['n']
         nt=c.execute('SELECT count(*) AS n FROM test_cases').fetchone()['n']
         mapped=c.execute('SELECT count(DISTINCT requirement_id) AS n FROM test_cases WHERE requirement_id IS NOT NULL').fetchone()['n']
-    return {'requirements':nr,'test_cases':nt,'mapped_requirements':mapped,'mapping_coverage':round(100*mapped/nr,1) if nr else None,'executed_tests':0,'pass_rate':None}
+        summary = c.execute('''
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE verdict = 'PASSED') AS passed,
+                COUNT(*) FILTER (WHERE verdict = 'FAILED') AS failed,
+                COUNT(*) FILTER (WHERE verdict = 'ERROR') AS errors,
+                COUNT(DISTINCT test_id) AS distinct_tests
+            FROM test_executions
+        ''').fetchone()
+    total = summary['total']
+    return {
+        'requirements': nr,
+        'test_cases': nt,
+        'mapped_requirements': mapped,
+        'mapping_coverage': round(100*mapped/nr,1) if nr else None,
+        'total_executions': total,
+        'executed_tests': summary['distinct_tests'],
+        'passed_executions': summary['passed'],
+        'failed_executions': summary['failed'],
+        'error_executions': summary['errors'],
+        'pass_rate': round(100*summary['passed']/total,1) if total else None
+    }
 
 def sheet_rows(wb, name, required):
     if name not in wb.sheetnames: raise ValueError(f'Missing sheet: {name}')
