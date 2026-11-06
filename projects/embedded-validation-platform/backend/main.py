@@ -8,7 +8,7 @@ from psycopg.rows import dict_row
 
 from execution_api import router, initialize_execution_database
 
-from campaign_api import router as campaign_router, initialize_campaign_database
+from campaign_api import router as campaign_router, initialize_campaign_database, recover_interrupted_campaigns
 
 app = FastAPI(title='EVAP API', version='0.3.0')
 app.include_router(router)
@@ -24,6 +24,9 @@ def conn():
 def init():
     initialize_execution_database()
     initialize_campaign_database()
+    recovered = recover_interrupted_campaigns()
+    if recovered:
+        print(f"EVAP recovery: {recovered} interrupted campaign(s)")
     with conn() as c:
         c.execute('CREATE TABLE IF NOT EXISTS requirements (id TEXT PRIMARY KEY, subsystem TEXT, description TEXT, priority TEXT, status TEXT, payload JSONB NOT NULL, updated_at TIMESTAMPTZ DEFAULT now())')
         c.execute('CREATE TABLE IF NOT EXISTS test_cases (id TEXT PRIMARY KEY, requirement_id TEXT REFERENCES requirements(id), name TEXT, environment TEXT, status TEXT, payload JSONB NOT NULL)')

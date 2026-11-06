@@ -70,6 +70,15 @@ def get_execution(execution_id: int):
     return row
 
 
+def classify_pytest_result(returncode: int) -> str:
+    """Classify a pytest process exit code."""
+    if returncode == 0:
+        return "PASSED"
+    if returncode == 1:
+        return "FAILED"
+    return "ERROR"
+
+
 @router.post("/executions/{test_id}")
 def run_test(test_id: str):
 
@@ -122,22 +131,36 @@ def run_test(test_id: str):
             }
         )
 
-        if result.returncode == 0:
-            verdict = "PASSED"
-        elif result.returncode == 1:
-            verdict = "FAILED"
-        else:
-            verdict = "ERROR"
+        verdict = classify_pytest_result(result.returncode)
 
         logs = result.stdout + "\n" + result.stderr
 
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         verdict = "ERROR"
-        logs = "Test execution timed out after 30 seconds"
+
+        def decode_output(value):
+            if value is None:
+                return ""
+            if isinstance(value, bytes):
+                return value.decode("utf-8", errors="replace")
+            return str(value)
+
+        partial_stdout = decode_output(exc.stdout)
+        partial_stderr = decode_output(exc.stderr)
+
+        logs = (
+            "EXECUTION TIMEOUT: pytest exceeded 30 seconds.\n"
+            f"STDOUT:\n{partial_stdout}\n"
+            f"STDERR:\n{partial_stderr}"
+        )
 
     except Exception as exc:
         verdict = "ERROR"
-        logs = f"Runner error: {type(exc).__name__}"
+        logs = (
+            "RUNNER ERROR\n"
+            f"Exception type: {type(exc).__name__}\n"
+            f"Message: {str(exc)}"
+        )
 
     duration = round(time.monotonic() - start, 3)
 
