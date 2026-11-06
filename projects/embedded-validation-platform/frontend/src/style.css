@@ -1,1 +1,98 @@
 *{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#f3f6fb;color:#14233e}.layout{display:flex;min-height:100vh}aside{width:240px;flex-shrink:0;background:#111d36;color:#fff;padding:28px 16px;position:relative}aside h2{letter-spacing:4px;font-size:28px;margin:0}aside small{color:#8ca5cd;letter-spacing:2px}nav{margin-top:52px;display:grid;gap:8px}nav button{background:none;color:#c4d3ed;border:0;border-radius:8px;text-align:left;padding:15px;cursor:pointer;font-size:15px}nav button:hover,nav button.active{background:#29436d;color:white}footer{position:absolute;bottom:25px;color:#91a9cf;font-size:12px}main{flex:1;min-width:0;padding:38px}header{display:flex;align-items:center;justify-content:space-between;gap:20px}h1{margin:0;font-size:30px}header p,.panel p{color:#71829d}.badge{border-radius:20px;background:#dff7eb;color:#087d60;padding:10px 15px;white-space:nowrap}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin:35px 0}article,.panel{background:#fff;border:1px solid #e1e7f0;border-radius:13px;padding:24px}article span{color:#6c7e9b}article strong{display:block;font-size:35px;margin-top:15px}.panel{margin:26px 0}.panel h2{margin-top:0}.upload{display:inline-block;padding:12px 20px;background:#285cda;color:#fff;border-radius:7px;cursor:pointer}.upload input{display:none}.filters{display:flex;gap:12px;margin:20px 0}.filters input,.filters select{padding:12px;border:1px solid #d6dfeb;border-radius:8px;font:inherit}.filters input{flex:1}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:13px;text-align:left;border-bottom:1px solid #e7edf5}th{background:#f5f7fb;white-space:nowrap}tr.clickable{cursor:pointer}tr.clickable:hover{background:#eef4ff}.details{margin-top:20px;padding:20px;background:#f5f8fd;border-radius:10px}.details button{float:right;border:0;background:#e4eafa;padding:8px;border-radius:6px;cursor:pointer}.details p{overflow-wrap:anywhere}@media(max-width:950px){.cards{grid-template-columns:repeat(2,1fr)}aside{width:190px}main{padding:20px}}@media(max-width:600px){.layout{display:block}aside{width:auto}aside footer{display:none}nav{margin-top:15px;display:flex;overflow:auto}nav button{white-space:nowrap}header{display:block}.cards{grid-template-columns:1fr 1fr}}
+
+/* EVAP v0.4 — Campaign Manager */
+
+.campaign-form{
+  max-width:760px;
+}
+
+.campaign-form>label{
+  display:block;
+  font-weight:600;
+  margin:20px 0 8px;
+}
+
+.campaign-form>input{
+  width:100%;
+  padding:13px;
+  border:1px solid #d6dfeb;
+  border-radius:8px;
+  font:inherit;
+}
+
+.campaign-test-list{
+  display:grid;
+  gap:10px;
+  margin:20px 0;
+}
+
+.campaign-test{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  border:1px solid #e1e7f0;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.campaign-test:hover{
+  background:#f5f8fd;
+}
+
+.campaign-test input{
+  width:18px;
+  height:18px;
+}
+
+.primary-button,
+.campaign-actions button{
+  padding:12px 20px;
+  background:#285cda;
+  color:white;
+  border:0;
+  border-radius:8px;
+  cursor:pointer;
+  font:inherit;
+}
+
+.primary-button:disabled,
+.campaign-actions button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+.campaign-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:20px 0;
+}
+
+.campaign-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:20px;
+  padding:16px;
+  margin:20px 0;
+  background:#f5f8fd;
+  border-radius:8px;
+}
+
+.campaign-logs{
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  max-width:550px;
+  max-height:300px;
+  overflow:auto;
+  padding:12px;
+  background:#111d36;
+  color:white;
+  border-radius:8px;
+}
+
+details summary{
+  cursor:pointer;
+  color:#285cda;
+  white-space:nowrap;
+}

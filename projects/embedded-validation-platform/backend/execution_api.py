@@ -15,7 +15,10 @@ DB = os.environ["DATABASE_URL"]
 SIL_ROOT = "/opt/evap/sil"
 
 ALLOWED_TESTS = {
-    "TC-004": "tests/test_can_timeout.py::test_sw_004_can_timeout"
+    "TC-004": "tests/test_can_timeout.py::test_sw_004_can_timeout",
+    "TC-008": "tests/test_startup.py::test_sw_008_startup_initialization",
+    "TC-009": "tests/test_can_transmission.py::test_sw_009_can_transmission",
+    "TC-011": "tests/test_soc.py::test_sw_011_soc_calculation"
 }
 
 
