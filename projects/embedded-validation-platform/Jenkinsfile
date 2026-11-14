@@ -3,6 +3,20 @@ import groovy.json.JsonOutput
 pipeline {
     agent any
 
+    parameters {
+        choice(
+            name: 'VALIDATION_SCENARIO',
+            choices: [
+                'NORMAL',
+                'TEST_FAILURE',
+                'EXECUTION_ERROR',
+                'MISSING_RESULT',
+                'INTERRUPTED'
+            ],
+            description: 'EVAP Quality Gate validation scenario'
+        )
+    }
+
     environment {
         EVAP_API_URL = 'http://backend:8000'
     }
@@ -93,11 +107,79 @@ pipeline {
             }
         }
 
-        stage('Generate JUnit Report') {
+        stage('Prepare Validation Results') {
             steps {
                 script {
                     def campaign = readJSON(
                         file: 'evap-reports/campaign-details.json',
+                        returnPojo: true
+                    )
+
+                    def scenario = params.VALIDATION_SCENARIO
+
+                    echo "Validation scenario: ${scenario}"
+
+                    if (scenario != 'NORMAL') {
+
+                        if (campaign.status != 'COMPLETED' ||
+                            campaign.passed != 4 ||
+                            campaign.failed != 0 ||
+                            campaign.errors != 0 ||
+                            campaign.executions.size() != 4) {
+                            error('Fault injection requires a nominal campaign')
+                        }
+
+                        currentBuild.description =
+                            "SYNTHETIC VALIDATION: ${scenario}"
+
+                        campaign.synthetic_validation = true
+                        campaign.validation_scenario = scenario
+
+                        echo 'WARNING: SYNTHETIC FAULT INJECTION'
+
+                        if (scenario == 'TEST_FAILURE') {
+                            campaign.executions[0].verdict = 'FAILED'
+                            campaign.executions[0].logs =
+                                'SYNTHETIC: Functional failure injected'
+                            campaign.passed = 3
+                            campaign.failed = 1
+
+                        } else if (scenario == 'EXECUTION_ERROR') {
+                            campaign.executions[0].verdict = 'ERROR'
+                            campaign.executions[0].logs =
+                                'SYNTHETIC: Execution error injected'
+                            campaign.passed = 3
+                            campaign.errors = 1
+                            campaign.status = 'COMPLETED_WITH_ERRORS'
+
+                        } else if (scenario == 'MISSING_RESULT') {
+                            campaign.executions.remove(0)
+                            campaign.passed = 3
+
+                        } else if (scenario == 'INTERRUPTED') {
+                            campaign.status = 'INTERRUPTED'
+
+                        } else {
+                            error("Unknown scenario: ${scenario}")
+                        }
+                    }
+
+                    writeJSON(
+                        file: 'evap-reports/validation-results.json',
+                        json: campaign,
+                        pretty: 4
+                    )
+
+                    echo 'Validation results prepared.'
+                }
+            }
+        }
+
+        stage('Generate JUnit Report') {
+            steps {
+                script {
+                    def campaign = readJSON(
+                        file: 'evap-reports/validation-results.json',
                         returnPojo: true
                     )
 
@@ -181,7 +263,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    def campaign = readJSON(file: 'evap-reports/campaign-details.json', returnPojo: true)
+                    def campaign = readJSON(file: 'evap-reports/validation-results.json', returnPojo: true)
 
                     def expectedTests = [
                         'TC-004',
