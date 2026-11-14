@@ -1,3 +1,6 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurperClassic
+
 pipeline {
     agent any
 
@@ -18,6 +21,12 @@ pipeline {
             steps {
                 echo 'EVAP CI/CD Pipeline v0.5'
                 echo "Build number: ${env.BUILD_NUMBER}"
+                echo "Git commit: ${env.GIT_COMMIT}"
+
+                sh '''
+                    rm -rf evap-reports
+                    mkdir -p evap-reports
+                '''
             }
         }
 
@@ -31,28 +40,149 @@ pipeline {
             }
         }
 
+        stage('Execute SIL Campaign') {
+            steps {
+                script {
+                    def payload = [
+                        name: "Jenkins SIL Regression #${env.BUILD_NUMBER}",
+                        test_ids: [
+                            'TC-004',
+                            'TC-008',
+                            'TC-009',
+                            'TC-011'
+                        ]
+                    ]
+
+                    writeFile(
+                        file: 'evap-reports/campaign-request.json',
+                        text: JsonOutput.toJson(payload)
+                    )
+
+                    sh '''
+                        curl --fail --silent --show-error \
+                            --max-time 180 \
+                            -X POST \
+                            -H "Content-Type: application/json" \
+                            --data @evap-reports/campaign-request.json \
+                            "$EVAP_API_URL/api/campaigns" \
+                            -o evap-reports/campaign-response.json
+                    '''
+
+                    def response = new JsonSlurperClassic().parseText(
+                        readFile('evap-reports/campaign-response.json')
+                    )
+
+                    def campaignId = response.campaign_id ?: response.id
+
+                    if (!campaignId) {
+                        error('EVAP did not return a campaign ID')
+                    }
+
+                    env.EVAP_CAMPAIGN_ID = campaignId.toString()
+
+                    echo "EVAP Campaign ID: ${env.EVAP_CAMPAIGN_ID}"
+                }
+            }
+        }
+
+        stage('Collect Campaign Results') {
+            steps {
+                sh '''
+                    curl --fail --silent --show-error \
+                        --max-time 15 \
+                        "$EVAP_API_URL/api/campaigns/$EVAP_CAMPAIGN_ID" \
+                        -o evap-reports/campaign-details.json
+                '''
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                script {
+                    def campaign = new JsonSlurperClassic().parseText(
+                        readFile('evap-reports/campaign-details.json')
+                    )
+
+                    def expectedTests = [
+                        'TC-004',
+                        'TC-008',
+                        'TC-009',
+                        'TC-011'
+                    ]
+
+                    def executions = campaign.executions ?: []
+
+                    echo '====================================='
+                    echo 'EVAP SIL VALIDATION REPORT'
+                    echo '====================================='
+                    echo "Campaign: ${campaign.name}"
+                    echo "Status: ${campaign.status}"
+                    echo "Total: ${campaign.total_tests}"
+                    echo "Passed: ${campaign.passed}"
+                    echo "Failed: ${campaign.failed}"
+                    echo "Errors: ${campaign.errors}"
+                    echo '-------------------------------------'
+
+                    executions.each { execution ->
+                        echo "${execution.test_id}: ${execution.verdict}"
+                    }
+
+                    echo '====================================='
+
+                    def actualTests = executions.collect {
+                        it.test_id
+                    }.sort()
+
+                    if (campaign.status != 'COMPLETED' ||
+                        campaign.total_tests != 4 ||
+                        campaign.passed != 4 ||
+                        campaign.failed != 0 ||
+                        campaign.errors != 0 ||
+                        executions.size() != 4 ||
+                        actualTests != expectedTests.sort() ||
+                        executions.any {
+                            it.verdict != 'PASSED' ||
+                            it.environment != 'SIL'
+                        }) {
+
+                        error('EVAP QUALITY GATE FAILED')
+                    }
+
+                    echo 'EVAP QUALITY GATE PASSED'
+                }
+            }
+        }
+
         stage('Verify Dashboard API') {
             steps {
                 sh '''
                     curl --fail --silent --show-error \
                         --max-time 10 \
-                        "$EVAP_API_URL/api/dashboard"
+                        "$EVAP_API_URL/api/dashboard" \
+                        -o evap-reports/dashboard.json
+
+                    cat evap-reports/dashboard.json
                 '''
             }
         }
     }
 
     post {
+        always {
+            archiveArtifacts(
+                artifacts: 'evap-reports/*.json',
+                allowEmptyArchive: true
+            )
+
+            echo 'EVAP pipeline finished.'
+        }
+
         success {
-            echo 'EVAP connectivity checks passed.'
+            echo 'EVAP SIL validation successfully completed.'
         }
 
         failure {
-            echo 'EVAP pipeline failed.'
-        }
-
-        always {
-            echo 'EVAP pipeline finished.'
+            echo 'EVAP SIL validation failed.'
         }
     }
 }
