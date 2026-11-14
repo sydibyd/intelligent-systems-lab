@@ -1,5 +1,4 @@
 import groovy.json.JsonOutput
-import groovy.json.JsonSlurperClassic
 
 pipeline {
     agent any
@@ -68,9 +67,7 @@ pipeline {
                             -o evap-reports/campaign-response.json
                     '''
 
-                    def response = new JsonSlurperClassic().parseText(
-                        readFile('evap-reports/campaign-response.json')
-                    )
+                    def response = readJSON(file: 'evap-reports/campaign-response.json', returnPojo: true)
 
                     def campaignId = response.campaign_id ?: response.id
 
@@ -99,9 +96,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    def campaign = new JsonSlurperClassic().parseText(
-                        readFile('evap-reports/campaign-details.json')
-                    )
+                    def campaign = readJSON(file: 'evap-reports/campaign-details.json', returnPojo: true)
 
                     def expectedTests = [
                         'TC-004',
