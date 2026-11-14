@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        EVAP_API_URL = 'http://backend:8000'
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        timeout(time: 10, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    stages {
+
+        stage('Initialize') {
+            steps {
+                echo 'EVAP CI/CD Pipeline v0.5'
+                echo "Build number: ${env.BUILD_NUMBER}"
+            }
+        }
+
+        stage('EVAP Health Check') {
+            steps {
+                sh '''
+                    curl --fail --silent --show-error \
+                        --max-time 10 \
+                        "$EVAP_API_URL/api/health"
+                '''
+            }
+        }
+
+        stage('Verify Dashboard API') {
+            steps {
+                sh '''
+                    curl --fail --silent --show-error \
+                        --max-time 10 \
+                        "$EVAP_API_URL/api/dashboard"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'EVAP connectivity checks passed.'
+        }
+
+        failure {
+            echo 'EVAP pipeline failed.'
+        }
+
+        always {
+            echo 'EVAP pipeline finished.'
+        }
+    }
+}
