@@ -2,10 +2,10 @@
 
 > A universal CI/CD validation platform for embedded software systems.
 
-**Version:** v0.5 — CI/CD Integration  
-**Status:** Operational — Release Candidate Development  
-**Validation date:** 2026-11-14  
-**Reference commit:** b2ea4fe  
+**Version:** v0.5 — CI/CD Integration
+**Status:** Operational — Release Candidate Development
+**Validation date:** 2026-11-14
+**Reference commit:** b2ea4fe
 **Reference Jenkins build:** #13
 
 ---
