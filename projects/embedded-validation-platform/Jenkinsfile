@@ -93,6 +93,91 @@ pipeline {
             }
         }
 
+        stage('Generate JUnit Report') {
+            steps {
+                script {
+                    def campaign = readJSON(
+                        file: 'evap-reports/campaign-details.json',
+                        returnPojo: true
+                    )
+
+                    def executions = campaign.executions ?: []
+
+                    def escapeXml = { value ->
+                        (value == null ? '' : value.toString())
+                            .replace('&', '&amp;')
+                            .replace('<', '&lt;')
+                            .replace('>', '&gt;')
+                            .replace('"', '&quot;')
+                            .replace("'", '&apos;')
+                    }
+
+                    def failures = executions.count {
+                        it.verdict == 'FAILED'
+                    }
+
+                    def errors = executions.count {
+                        it.verdict != 'PASSED' &&
+                        it.verdict != 'FAILED'
+                    }
+
+                    def duration = 0.0
+
+                    executions.each { execution ->
+                        duration += (execution.duration_seconds ?: 0)
+                    }
+
+                    def xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+
+                    xml += '<testsuite name="EVAP.SIL"'
+                    xml += " tests=\"${executions.size()}\""
+                    xml += " failures=\"${failures}\""
+                    xml += " errors=\"${errors}\""
+                    xml += " skipped=\"0\""
+                    xml += " time=\"${duration}\">\n"
+
+                    executions.each { execution ->
+
+                        def testId = escapeXml(execution.test_id)
+                        def requirement = escapeXml(
+                            execution.requirement_id
+                        )
+                        def logs = escapeXml(execution.logs)
+                        def verdict = execution.verdict
+                        def testDuration = execution.duration_seconds ?: 0
+
+                        xml += "  <testcase classname=\"EVAP.SIL.${requirement}\""
+                        xml += " name=\"${testId}\""
+                        xml += " time=\"${testDuration}\">\n"
+
+                        if (verdict == 'FAILED') {
+                            xml += "    <failure message=\"Test failed\">${logs}</failure>\n"
+                        } else if (verdict != 'PASSED') {
+                            xml += "    <error message=\"Execution error\">${logs}</error>\n"
+                        }
+
+                        xml += "    <system-out>${logs}</system-out>\n"
+                        xml += '  </testcase>\n'
+                    }
+
+                    xml += '</testsuite>\n'
+
+                    writeFile(
+                        file: 'evap-reports/junit-results.xml',
+                        text: xml,
+                        encoding: 'UTF-8'
+                    )
+
+                    echo 'EVAP JUnit XML report generated.'
+
+                    junit(
+                        testResults: 'evap-reports/junit-results.xml',
+                        allowEmptyResults: false
+                    )
+                }
+            }
+        }
+
         stage('Quality Gate') {
             steps {
                 script {
@@ -165,7 +250,7 @@ pipeline {
     post {
         always {
             archiveArtifacts(
-                artifacts: 'evap-reports/*.json',
+                artifacts: 'evap-reports/*.json,evap-reports/*.xml',
                 allowEmptyArchive: true
             )
 
