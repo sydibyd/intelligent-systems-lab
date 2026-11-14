@@ -3,6 +3,10 @@ import groovy.json.JsonOutput
 pipeline {
     agent any
 
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
     parameters {
         choice(
             name: 'VALIDATION_SCENARIO',
