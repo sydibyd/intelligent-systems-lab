@@ -47,6 +47,69 @@ pipeline {
             }
         }
 
+        stage('Setup Python Environment') {
+            steps {
+                sh '''
+                    set -eu
+
+                    echo "=== PYTHON RUNTIME ==="
+                    python3 --version
+
+                    rm -rf .evap-venv
+                    python3 -m venv .evap-venv
+
+                    echo "=== INSTALL BACKEND DEPENDENCIES ==="
+                    .evap-venv/bin/python -m pip install \
+                        --disable-pip-version-check \
+                        -r projects/embedded-validation-platform/backend/requirements.txt
+
+                    .evap-venv/bin/python -m pip check
+                '''
+            }
+        }
+
+        stage('Backend Unit Tests') {
+            steps {
+                script {
+                    def testStatus = sh(
+                        returnStatus: true,
+                        script: '''
+                            set -eu
+
+                            export DATABASE_URL="postgresql://evap:evap@localhost:5432/evap"
+                            export PYTHONDONTWRITEBYTECODE=1
+                            export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+
+                            WORKSPACE_ROOT="$PWD"
+
+                            cd projects/embedded-validation-platform/backend
+
+                            "$WORKSPACE_ROOT/.evap-venv/bin/python" -m pytest \
+                                -v \
+                                -p no:cacheprovider \
+                                --junitxml="$WORKSPACE_ROOT/evap-reports/backend-unit-results.xml" \
+                                tests/
+                        '''
+                    )
+
+                    if (fileExists('evap-reports/backend-unit-results.xml')) {
+                        junit(
+                            testResults: 'evap-reports/backend-unit-results.xml',
+                            allowEmptyResults: false
+                        )
+                    } else {
+                        error('Backend unit test report was not generated')
+                    }
+
+                    if (testStatus != 0) {
+                        error("EVAP UNIT TEST QUALITY GATE FAILED: exit code ${testStatus}")
+                    }
+
+                    echo 'EVAP UNIT TEST QUALITY GATE PASSED'
+                }
+            }
+        }
+
         stage('EVAP Health Check') {
             steps {
                 sh '''
@@ -344,11 +407,11 @@ pipeline {
         }
 
         success {
-            echo 'EVAP SIL validation successfully completed.'
+            echo 'EVAP backend and SIL validation successfully completed.'
         }
 
         failure {
-            echo 'EVAP SIL validation failed.'
+            echo 'EVAP CI/CD validation failed.'
         }
     }
 }
