@@ -12,6 +12,7 @@ pipeline {
             name: 'VALIDATION_SCENARIO',
             choices: [
                 'NORMAL',
+                'UNIT_TEST_FAILURE',
                 'TEST_FAILURE',
                 'EXECUTION_ERROR',
                 'MISSING_RESULT',
@@ -71,6 +72,13 @@ pipeline {
         stage('Backend Unit Tests') {
             steps {
                 script {
+                    if (params.VALIDATION_SCENARIO == 'UNIT_TEST_FAILURE') {
+                        currentBuild.description =
+                            'SYNTHETIC VALIDATION: UNIT_TEST_FAILURE'
+
+                        echo 'WARNING: SYNTHETIC UNIT TEST FAILURE INJECTION'
+                    }
+
                     def testStatus = sh(
                         returnStatus: true,
                         script: '''
@@ -84,11 +92,28 @@ pipeline {
 
                             cd projects/embedded-validation-platform/backend
 
+                            set -- tests/
+
+                            if [ "$VALIDATION_SCENARIO" = "UNIT_TEST_FAILURE" ]; then
+                                SYNTHETIC_DIR="$(mktemp -d)"
+
+                                trap 'rm -rf "$SYNTHETIC_DIR"' EXIT
+
+                                cat > "$SYNTHETIC_DIR/test_synthetic_unit_failure.py" <<'EOF'
+def test_synthetic_unit_failure():
+    assert False, "SYNTHETIC: Unit test failure injected"
+EOF
+
+                                set -- "$@" "$SYNTHETIC_DIR/test_synthetic_unit_failure.py"
+
+                                echo "Synthetic unit test injected."
+                            fi
+
                             "$WORKSPACE_ROOT/.evap-venv/bin/python" -m pytest \
                                 -v \
                                 -p no:cacheprovider \
                                 --junitxml="$WORKSPACE_ROOT/evap-reports/backend-unit-results.xml" \
-                                tests/
+                                "$@"
                         '''
                     )
 
@@ -103,6 +128,10 @@ pipeline {
 
                     if (testStatus != 0) {
                         error("EVAP UNIT TEST QUALITY GATE FAILED: exit code ${testStatus}")
+                    }
+
+                    if (params.VALIDATION_SCENARIO == 'UNIT_TEST_FAILURE') {
+                        error('Synthetic unit test unexpectedly passed')
                     }
 
                     echo 'EVAP UNIT TEST QUALITY GATE PASSED'
