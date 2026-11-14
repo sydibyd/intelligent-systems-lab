@@ -378,3 +378,22 @@ EVAP — Embedded Validation Automation Platform
 
 A universal CI/CD validation platform for embedded
 software systems.
+
+## Validated Operational Baseline — 2026-11-14
+
+This baseline supersedes earlier pipeline descriptions, metrics and backend unit testing limitations in this document.
+
+Jenkins now uses a custom Python 3.11 runtime. Each build creates a virtual environment, checks dependencies and executes eight backend unit tests before the backend health check and SIL campaign. Unit failures prevent SIL execution. The SIL quality gate checks campaign status, result completeness, expected test identities, environment and verdicts.
+
+| Scenario | Unit gate | SIL gate | Jenkins |
+|---|---|---|---|
+| NORMAL | PASS | PASS | SUCCESS |
+| UNIT_TEST_FAILURE | FAIL | NOT RUN | FAILURE |
+| TEST_FAILURE | PASS | FAIL | FAILURE |
+| EXECUTION_ERROR | PASS | FAIL | FAILURE |
+| MISSING_RESULT | PASS | FAIL | FAILURE |
+| INTERRUPTED | PASS | FAIL | FAILURE |
+
+Reference commit: `333c3a5fdc8b35195c1a8e2313bcf96b1bf8f2d6`. Final build 27, campaign 28. Validation: 21/21 criteria, 9/9 builds, 5/5 campaign integrity checks, seven archived artifacts. Historical metrics: 121/121 successful SIL executions, four distinct SIL tests, 33.33% execution coverage and 100% requirements mapping coverage.
+
+See [Pipeline Validation Report v0.5](EVAP_PIPELINE_VALIDATION_REPORT_V0.5.md) for the updated architecture diagram, evidence matrix and limitations. Build-to-test traceability, deployed source identification and version management remain pending before final release.
