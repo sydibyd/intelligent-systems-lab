@@ -32,3 +32,8 @@ Architecture & Initial Development
 ---
 
 **One Platform. Every Requirement. Continuous Validation.**
+
+
+## Operational Architecture
+
+- [EVAP Operational Architecture v0.5](docs/architecture/EVAP_OPERATIONAL_ARCHITECTURE_V0.5.md)
