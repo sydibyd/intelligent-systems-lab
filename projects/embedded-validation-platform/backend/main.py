@@ -7,6 +7,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from execution_api import router, initialize_execution_database
+from migration_manager import apply_migrations
 
 from campaign_api import router as campaign_router, initialize_campaign_database, recover_interrupted_campaigns
 
@@ -24,6 +25,7 @@ def conn():
 def init():
     initialize_execution_database()
     initialize_campaign_database()
+    apply_migrations()
     recovered = recover_interrupted_campaigns()
     if recovered:
         print(f"EVAP recovery: {recovered} interrupted campaign(s)")
