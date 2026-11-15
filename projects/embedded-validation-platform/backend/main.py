@@ -8,12 +8,14 @@ from psycopg.rows import dict_row
 
 from execution_api import router, initialize_execution_database
 from migration_manager import apply_migrations
+from traceability_api import router as traceability_router
 
 from campaign_api import router as campaign_router, initialize_campaign_database, recover_interrupted_campaigns
 
 app = FastAPI(title='EVAP API', version='0.3.0')
 app.include_router(router)
 app.include_router(campaign_router)
+app.include_router(traceability_router)
 DB = os.getenv('DATABASE_URL', 'postgresql://evap:evap_dev@db:5432/evap')
 
 @contextmanager

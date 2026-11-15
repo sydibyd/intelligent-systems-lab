@@ -13,6 +13,11 @@ DB = os.environ["DATABASE_URL"]
 class CampaignRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     test_ids: list[str] = Field(min_length=1, max_length=20)
+    ci_build_id: int | None = Field(
+        default=None,
+        gt=0,
+        le=9223372036854775807
+    )
 
 
 def initialize_campaign_database():
@@ -129,11 +134,37 @@ def create_campaign(request: CampaignRequest):
         )
 
     with psycopg.connect(DB, row_factory=dict_row) as conn:
+
+        if request.ci_build_id is not None:
+            build = conn.execute("""
+                SELECT id, status
+                FROM ci_builds
+                WHERE id = %s
+                FOR UPDATE
+            """, (request.ci_build_id,)).fetchone()
+
+            if build is None:
+                raise HTTPException(404, "CI build not found")
+
+            if build["status"] != "RUNNING":
+                raise HTTPException(
+                    409,
+                    "CI build is already finalized"
+                )
+
         campaign = conn.execute("""
-            INSERT INTO test_campaigns(name, total_tests)
-            VALUES (%s, %s)
+            INSERT INTO test_campaigns(
+                name,
+                total_tests,
+                ci_build_id
+            )
+            VALUES (%s, %s, %s)
             RETURNING id
-        """, (request.name, len(request.test_ids))).fetchone()
+        """, (
+            request.name,
+            len(request.test_ids),
+            request.ci_build_id
+        )).fetchone()
 
     campaign_id = campaign["id"]
     results = []
@@ -186,6 +217,7 @@ def create_campaign(request: CampaignRequest):
 
     return {
         "campaign_id": campaign_id,
+        "ci_build_id": request.ci_build_id,
         "name": request.name,
         "status": status,
         "total_tests": len(results),
