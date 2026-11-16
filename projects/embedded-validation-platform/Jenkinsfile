@@ -24,6 +24,7 @@ pipeline {
 
     environment {
         EVAP_API_URL = 'http://backend:8000'
+        EVAP_CI_INSTANCE = 'jenkins-local'
     }
 
     options {
@@ -45,6 +46,75 @@ pipeline {
                     rm -rf evap-reports
                     mkdir -p evap-reports
                 '''
+            }
+        }
+
+        stage('Register CI Build') {
+            steps {
+                script {
+                    def gitCommit = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    def triggerSource = 'UNKNOWN'
+
+                    if (currentBuild.getBuildCauses(
+                        'hudson.triggers.SCMTrigger$SCMTriggerCause'
+                    ).size() > 0) {
+                        triggerSource = 'SCM'
+                    } else if (currentBuild.getBuildCauses(
+                        'hudson.model.Cause$UserIdCause'
+                    ).size() > 0) {
+                        triggerSource = 'MANUAL'
+                    }
+
+                    def payload = [
+                        ci_instance: env.EVAP_CI_INSTANCE,
+                        pipeline_name: env.JOB_NAME,
+                        build_number: env.BUILD_NUMBER.toInteger(),
+                        build_url: env.BUILD_URL,
+                        git_commit: gitCommit,
+                        git_branch: env.GIT_BRANCH ?: 'UNKNOWN',
+                        trigger_source: triggerSource,
+                        validation_scenario: params.VALIDATION_SCENARIO
+                    ]
+
+                    writeJSON(
+                        file: 'evap-reports/ci-build-request.json',
+                        json: payload,
+                        pretty: 4
+                    )
+
+                    sh '''
+                        curl --fail --silent --show-error \\
+                            --max-time 15 \\
+                            --retry 2 \\
+                            -X POST \\
+                            -H "Content-Type: application/json" \\
+                            --data @evap-reports/ci-build-request.json \\
+                            "$EVAP_API_URL/api/ci-builds" \\
+                            -o evap-reports/ci-build-registration.json
+                    '''
+
+                    def registered = readJSON(
+                        file: 'evap-reports/ci-build-registration.json',
+                        returnPojo: true
+                    )
+
+                    if (!registered.id ||
+                        registered.git_commit != gitCommit ||
+                        registered.status != 'RUNNING') {
+                        error('Invalid CI build registration')
+                    }
+
+                    env.EVAP_CI_BUILD_ID = registered.id.toString()
+
+                    echo "EVAP CI Build ID: ${env.EVAP_CI_BUILD_ID}"
+                    echo "Git SHA: ${gitCommit}"
+                    echo "Trigger source: ${triggerSource}"
+                    echo 'EVAP BUILD REGISTRATION PASSED'
+                }
             }
         }
 
@@ -154,6 +224,7 @@ EOF
                 script {
                     def payload = [
                         name: "Jenkins SIL Regression #${env.BUILD_NUMBER}",
+                        ci_build_id: env.EVAP_CI_BUILD_ID.toLong(),
                         test_ids: [
                             'TC-004',
                             'TC-008',
@@ -185,7 +256,14 @@ EOF
                         error('EVAP did not return a campaign ID')
                     }
 
+                    if (response.ci_build_id?.toString() !=
+                        env.EVAP_CI_BUILD_ID) {
+                        error('CI build and campaign association mismatch')
+                    }
+
                     env.EVAP_CAMPAIGN_ID = campaignId.toString()
+
+                    echo 'EVAP CAMPAIGN ASSOCIATION PASSED'
 
                     echo "EVAP Campaign ID: ${env.EVAP_CAMPAIGN_ID}"
                 }
@@ -210,6 +288,11 @@ EOF
                         file: 'evap-reports/campaign-details.json',
                         returnPojo: true
                     )
+
+                    if (campaign.ci_build_id?.toString() !=
+                        env.EVAP_CI_BUILD_ID) {
+                        error('Persisted campaign association mismatch')
+                    }
 
                     def scenario = params.VALIDATION_SCENARIO
 
@@ -427,6 +510,53 @@ EOF
 
     post {
         always {
+            script {
+                if (env.EVAP_CI_BUILD_ID?.trim()) {
+                    def finalStatus = currentBuild.currentResult
+
+                    writeJSON(
+                        file: 'evap-reports/ci-build-finalization-request.json',
+                        json: [status: finalStatus],
+                        pretty: 4
+                    )
+
+                    try {
+                        sh '''
+                            curl --fail --silent --show-error \\
+                                --max-time 15 \\
+                                --retry 2 \\
+                                -X PATCH \\
+                                -H "Content-Type: application/json" \\
+                                --data @evap-reports/ci-build-finalization-request.json \\
+                                "$EVAP_API_URL/api/ci-builds/$EVAP_CI_BUILD_ID" \\
+                                -o evap-reports/ci-build-finalization.json
+                        '''
+
+                        def finalized = readJSON(
+                            file: 'evap-reports/ci-build-finalization.json',
+                            returnPojo: true
+                        )
+
+                        if (finalized.id?.toString() != env.EVAP_CI_BUILD_ID ||
+                            finalized.status != finalStatus ||
+                            !finalized.completed_at) {
+                            error('Invalid CI build finalization response')
+                        }
+
+                        echo "EVAP CI Build final status: ${finalized.status}"
+                        echo 'EVAP BUILD FINALIZATION PASSED'
+
+                    } catch (Exception exc) {
+                        currentBuild.result = 'FAILURE'
+                        echo "EVAP BUILD FINALIZATION FAILED: ${exc}"
+                        echo 'WARNING: CI build may require reconciliation'
+                    }
+
+                } else {
+                    echo 'WARNING: No registered EVAP CI build ID'
+                }
+            }
+
             archiveArtifacts(
                 artifacts: 'evap-reports/*.json,evap-reports/*.xml',
                 allowEmptyArchive: true
