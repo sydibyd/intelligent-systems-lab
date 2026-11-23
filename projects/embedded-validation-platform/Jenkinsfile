@@ -38,6 +38,16 @@ pipeline {
 
         stage('Initialize') {
             steps {
+                script {
+                    env.VALIDATION_SCENARIO =
+                        params.VALIDATION_SCENARIO ?: 'NORMAL'
+
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                }
+
                 echo 'EVAP CI/CD Pipeline v0.5'
                 echo "Build number: ${env.BUILD_NUMBER}"
                 echo "Git commit: ${env.GIT_COMMIT}"
@@ -77,7 +87,7 @@ pipeline {
                         git_commit: gitCommit,
                         git_branch: env.GIT_BRANCH ?: 'UNKNOWN',
                         trigger_source: triggerSource,
-                        validation_scenario: params.VALIDATION_SCENARIO
+                        validation_scenario: env.VALIDATION_SCENARIO
                     ]
 
                     writeJSON(
@@ -87,14 +97,10 @@ pipeline {
                     )
 
                     sh '''
-                        curl --fail --silent --show-error \\
-                            --max-time 15 \\
-                            --retry 2 \\
-                            -X POST \\
-                            -H "Content-Type: application/json" \\
-                            --data @evap-reports/ci-build-request.json \\
-                            "$EVAP_API_URL/api/ci-builds" \\
-                            -o evap-reports/ci-build-registration.json
+                        python3 projects/embedded-validation-platform/ci/evap_http.py \\
+                            POST "$EVAP_API_URL/api/ci-builds" \\
+                            evap-reports/ci-build-request.json \\
+                            evap-reports/ci-build-registration.json
                     '''
 
                     def registered = readJSON(
@@ -142,7 +148,7 @@ pipeline {
         stage('Backend Unit Tests') {
             steps {
                 script {
-                    if (params.VALIDATION_SCENARIO == 'UNIT_TEST_FAILURE') {
+                    if (env.VALIDATION_SCENARIO == 'UNIT_TEST_FAILURE') {
                         currentBuild.description =
                             'SYNTHETIC VALIDATION: UNIT_TEST_FAILURE'
 
@@ -200,7 +206,7 @@ EOF
                         error("EVAP UNIT TEST QUALITY GATE FAILED: exit code ${testStatus}")
                     }
 
-                    if (params.VALIDATION_SCENARIO == 'UNIT_TEST_FAILURE') {
+                    if (env.VALIDATION_SCENARIO == 'UNIT_TEST_FAILURE') {
                         error('Synthetic unit test unexpectedly passed')
                     }
 
@@ -294,7 +300,7 @@ EOF
                         error('Persisted campaign association mismatch')
                     }
 
-                    def scenario = params.VALIDATION_SCENARIO
+                    def scenario = env.VALIDATION_SCENARIO
 
                     echo "Validation scenario: ${scenario}"
 
@@ -522,14 +528,10 @@ EOF
 
                     try {
                         sh '''
-                            curl --fail --silent --show-error \\
-                                --max-time 15 \\
-                                --retry 2 \\
-                                -X PATCH \\
-                                -H "Content-Type: application/json" \\
-                                --data @evap-reports/ci-build-finalization-request.json \\
-                                "$EVAP_API_URL/api/ci-builds/$EVAP_CI_BUILD_ID" \\
-                                -o evap-reports/ci-build-finalization.json
+                            python3 projects/embedded-validation-platform/ci/evap_http.py \\
+                                PATCH "$EVAP_API_URL/api/ci-builds/$EVAP_CI_BUILD_ID" \\
+                                evap-reports/ci-build-finalization-request.json \\
+                                evap-reports/ci-build-finalization.json
                         '''
 
                         def finalized = readJSON(
