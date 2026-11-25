@@ -10,7 +10,7 @@ import tempfile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 
 RETRYABLE = {408, 429, 500, 502, 503, 504}
 
@@ -27,10 +27,16 @@ def send(method, url, payload, *, opener=None, sleep=time.sleep):
             (method == 'PATCH' and re.fullmatch(r'/api/ci-builds/[1-9][0-9]*', parts.path))):
         raise ValueError('Only idempotent build lifecycle operations are supported')
     data = json.dumps(payload).encode('utf-8')
-    opener = opener or build_opener(NoRedirect())
+    opener = opener or build_opener(ProxyHandler({}), NoRedirect())
+    token = os.getenv("EVAP_API_TOKEN")
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    if token:
+        if parts.scheme != "https" and parts.hostname != "backend":
+            raise ValueError("Authenticated requests require HTTPS or isolated backend")
+        headers["Authorization"] = "Bearer " + token
     for attempt in range(1, 4):
         try:
-            request = Request(url, data=data, method=method, headers={'Content-Type': 'application/json', 'Accept': 'application/json'})
+            request = Request(url, data=data, method=method, headers=headers)
             with opener.open(request, timeout=15) as response:
                 raw = response.read(1024 * 1024 + 1)
                 if len(raw) > 1024 * 1024:
