@@ -18,6 +18,9 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://evap:${DB_PASSWORD:-evap_dev}@db:5432/evap
+      EVAP_AI_ENABLED: ${EVAP_AI_ENABLED:-false}
+      EVAP_CLAUDE_MODEL: ${EVAP_CLAUDE_MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       EVAP_AUTH_MODE: ${EVAP_AUTH_MODE:-required}
       EVAP_IDENTITIES_JSON: ${EVAP_IDENTITIES_JSON:-[]}
     healthcheck:
