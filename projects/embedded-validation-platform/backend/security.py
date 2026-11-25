@@ -58,6 +58,8 @@ def allowed(role, method, path):
         if method == "PATCH":
             return role in {"admin", "architect"}
         return False
+    if method == "POST" and path == "/api/design/cases":
+        return role in HUMAN_WRITERS
     if method == "POST" and path == "/api/jobs":
         return role in HUMAN_WRITERS | {"ci"}
     if method == "POST" and path == "/api/requirements/import":
