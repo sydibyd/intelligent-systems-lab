@@ -24,6 +24,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      EVAP_AUTH_MODE: development
       DATABASE_URL: postgresql://evap:ci-only-password@evap-migration-test-db:5432/evap_reconciliation_ci
       EVAP_INTEGRATION_DATABASE_URL: postgresql://evap:ci-only-password@evap-migration-test-db:5432/evap_reconciliation_ci
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
