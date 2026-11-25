@@ -125,7 +125,8 @@ def run_test(test_id: str):
             timeout=30,
             check=False,
             env={
-                **os.environ,
+                 "PATH": os.defpath,
+                "LANG": "C.UTF-8",
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"
             }
@@ -158,8 +159,7 @@ def run_test(test_id: str):
         verdict = "ERROR"
         logs = (
             "RUNNER ERROR\n"
-            f"Exception type: {type(exc).__name__}\n"
-            f"Message: {str(exc)}"
+            f"Exception type: {type(exc).__name__}"
         )
 
     duration = round(time.monotonic() - start, 3)
