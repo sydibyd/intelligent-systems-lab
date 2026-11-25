@@ -1,4 +1,5 @@
 """Explicit bearer-token identities and deny-by-default API policy."""
+import logging
 import hashlib
 import hmac
 import json
@@ -83,9 +84,15 @@ def install_security(app):
             return await call_next(request)
         identity = authenticate(request.headers.get("authorization", ""), identities)
         if identity is None:
+            logging.getLogger('evap.audit').warning('authentication_denied method=%s', request.method)
             return JSONResponse({"detail": "Authentication required"}, status_code=401,
                                 headers={"WWW-Authenticate": "Bearer"})
         if not allowed(identity.role, request.method, path):
+            logging.getLogger('evap.audit').warning('authorization_denied actor=%r role=%s method=%s', identity.name, identity.role, request.method)
             return JSONResponse({"detail": "Permission denied"}, status_code=403)
         request.state.identity = identity
-        return await call_next(request)
+        response = await call_next(request)
+        if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
+            route = getattr(request.scope.get('route'), 'path', 'unknown')
+            logging.getLogger('evap.audit').warning('mutation actor=%r role=%s method=%s route=%r status=%s', identity.name, identity.role, request.method, route, response.status_code)
+        return response
