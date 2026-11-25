@@ -26,7 +26,7 @@ flowchart TB
     CAM --> RUN["Allowlisted pytest SIL runners"]
     RUN --> PG
     QUEUE <--> PG
-    WORKER["Independent SIL Worker"] -->|"claim via SKIP LOCKED; lease/fence"| PG
+    WORKER["Independent SIL Worker"] -->|"claim via SKIP LOCKED with lease fencing"| PG
     WORKER -->|"allowlisted test only"| RUN
     WORKER -->|"result + heartbeat"| PG
     AI <--> PG
@@ -64,7 +64,7 @@ sequenceDiagram
     participant P as pytest SIL
     E->>UI: Select TC-004 and submit
     UI->>API: POST /api/jobs + idempotency_key
-    API->>DB: Validate registered SIL test; enqueue
+    API->>DB: Validate registered SIL test and enqueue
     API-->>UI: 202 + job ID
     W->>DB: Claim QUEUED job (SKIP LOCKED, lease)
     DB-->>W: Leased RUNNING job
@@ -151,7 +151,7 @@ Local qualification used an **isolated** Docker project `evap-rc1` from a detach
 
 The 100% SIL **pass rate** covers only the four executed simulations, **not** all 12 test cases or real embedded hardware.
 
-Full evidence and exclusions: [RC1 Acceptance Report](../../RC1-ACCEPTANCE-REPORT.md) on the RC1 feature branch.
+Full evidence and exclusions: [RC1 Acceptance Report](https://github.com/sydibyd/intelligent-systems-lab/blob/38ac5b8c203d06bec60fe8e363024dbd5d58179b/projects/embedded-validation-platform/RC1-ACCEPTANCE-REPORT.md) on the RC1 feature branch.
 
 ## 5. Operational usage — isolated RC1 lab
 
