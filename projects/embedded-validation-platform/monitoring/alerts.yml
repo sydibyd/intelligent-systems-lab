@@ -1,0 +1,18 @@
+groups:
+  - name: evap
+    rules:
+      - alert: EVAPMetricsUnavailable
+        expr: up{job="evap"} == 0
+        for: 2m
+        labels:
+          severity: critical
+      - alert: EVAPExpiredLeases
+        expr: evap_expired_job_leases > 0
+        for: 2m
+        labels:
+          severity: warning
+      - alert: EVAPQueueBacklog
+        expr: evap_execution_jobs{status="QUEUED"} > 20
+        for: 5m
+        labels:
+          severity: warning
