@@ -17,6 +17,8 @@ from security import install_security
 install_security(app)
 from queue_api import router as queue_router
 app.include_router(queue_router)
+from ai_api import router as ai_router
+app.include_router(ai_router)
 app.include_router(router)
 app.include_router(campaign_router)
 app.include_router(traceability_router)
