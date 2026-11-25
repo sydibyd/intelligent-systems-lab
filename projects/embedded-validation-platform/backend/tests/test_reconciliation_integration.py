@@ -213,3 +213,58 @@ def test_terminal_conflict(context):
     assert result["action"] == "CONFLICT"
     assert not result["applied"]
     assert snapshot(build_id) == ("FAILURE", 2)
+
+
+def test_real_worker_lock_contention(context):
+    from reconciliation_worker import RecoveryWorker, LOCK_ID
+    service, _, _, _ = context
+    with psycopg.connect(DB, autocommit=True) as conn:
+        conn.execute("SELECT pg_advisory_lock(%s)", (LOCK_ID,))
+        try:
+            metrics = RecoveryWorker(service).run_cycle()
+            assert metrics["skipped"]
+            assert metrics["scanned"] == 0
+        finally:
+            conn.execute("SELECT pg_advisory_unlock(%s)", (LOCK_ID,))
+
+
+def test_rollback_on_audit_failure(context):
+    service, build_id, _, _ = context
+    with psycopg.connect(DB) as conn:
+        conn.execute("""
+            ALTER TABLE reconciliation_events
+            ADD CONSTRAINT synthetic_audit_failure CHECK (NOT applied)
+        """)
+    try:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            service.reconcile_build(build_id, dry_run=False)
+        assert snapshot(build_id) == ("RUNNING", 0)
+    finally:
+        with psycopg.connect(DB) as conn:
+            conn.execute("""
+                ALTER TABLE reconciliation_events
+                DROP CONSTRAINT synthetic_audit_failure
+            """)
+
+
+def test_concurrent_recovery(context):
+    from concurrent.futures import ThreadPoolExecutor
+    service, build_id, _, _ = context
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(service.reconcile_build, build_id, dry_run=False)
+                   for _ in range(2)]
+        results = [future.result(timeout=20) for future in futures]
+    assert sum(r["applied"] for r in results) == 1
+    assert sorted(r["action"] for r in results) == ["FINALIZE", "NO_CHANGE"]
+    assert snapshot(build_id) == ("FAILURE", 2)
+
+
+def test_invalid_jenkins_terminal_status(context):
+    service, build_id, client, metadata = context
+    metadata["result"] = "INTERRUPTED"
+    client.get_build.return_value = JenkinsState(
+        True, building=False, result="INTERRUPTED", metadata=metadata)
+    result = service.reconcile_build(build_id, dry_run=False)
+    assert result["action"] == "DEFER"
+    assert result["reason"] == "INVALID_JENKINS_RESULT"
+    assert snapshot(build_id) == ("RUNNING", 1)
