@@ -48,6 +48,8 @@ def allowed(role, method, path):
     if role not in ROLES:
         return False
     if method in {"GET", "HEAD"}:
+        if path == "/api/ai-drafts" or path.startswith("/api/ai-drafts/"):
+            return role != "ci"
         return path.startswith("/api/")
     if path.startswith("/api/ai-drafts"):
         if method == "POST" and path == "/api/ai-drafts":
