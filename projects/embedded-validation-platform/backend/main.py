@@ -13,6 +13,8 @@ from traceability_api import router as traceability_router
 from campaign_api import router as campaign_router, initialize_campaign_database, recover_interrupted_campaigns
 
 app = FastAPI(title='EVAP API', version='0.3.0')
+from security import install_security
+install_security(app)
 app.include_router(router)
 app.include_router(campaign_router)
 app.include_router(traceability_router)
