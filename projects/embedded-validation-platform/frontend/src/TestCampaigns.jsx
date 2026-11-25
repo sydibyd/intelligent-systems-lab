@@ -1,3 +1,4 @@
+import {apiFetch, setToken} from './api.js';
 import React, { useEffect, useState } from 'react';
 
 const SIL_IDS = ['TC-004', 'TC-008', 'TC-009', 'TC-011'];
@@ -16,7 +17,7 @@ export default function TestCampaigns({ tests, onCompleted }) {
   );
 
   const loadCampaigns = async () => {
-    const response = await fetch('/api/campaigns');
+    const response = await apiFetch('/api/campaigns');
     if (!response.ok) throw new Error(await response.text());
     setCampaigns(await response.json());
   };
@@ -36,7 +37,7 @@ export default function TestCampaigns({ tests, onCompleted }) {
   const viewResults = async id => {
     try {
       setError('');
-      const response = await fetch(`/api/campaigns/${id}`);
+      const response = await apiFetch(`/api/campaigns/${id}`);
       if (!response.ok) throw new Error(await response.text());
       setDetails(await response.json());
     } catch (e) {
@@ -51,7 +52,7 @@ export default function TestCampaigns({ tests, onCompleted }) {
     setError('');
 
     try {
-      const response = await fetch('/api/campaigns', {
+      const response = await apiFetch('/api/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
