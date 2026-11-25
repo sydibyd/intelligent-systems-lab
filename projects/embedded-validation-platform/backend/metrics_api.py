@@ -36,5 +36,11 @@ def metrics():
         """).fetchone()[0]
         lines.extend(["# TYPE evap_expired_job_leases gauge",
                       f"evap_expired_job_leases {expired}"])
+        active = conn.execute("""
+            SELECT count(*) FROM worker_heartbeats
+            WHERE last_seen > now()-interval '60 seconds'
+        """).fetchone()[0]
+        lines.extend(["# TYPE evap_active_workers gauge",
+                      f"evap_active_workers {active}"])
     return PlainTextResponse("\n".join(lines)+"\n",
                              media_type="text/plain; version=0.0.4")
