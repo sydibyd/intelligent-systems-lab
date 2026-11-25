@@ -48,3 +48,14 @@ jobs:
         run: python -m pytest -q tests/
       - name: HTTP client qualification
         run: python -m pytest -q ci/tests/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frontend compilation
+        working-directory: projects/embedded-validation-platform/frontend
+        run: |
+          if test -f package-lock.json; then npm ci; else npm install; fi
+          npm run build
+      - name: Validate monitoring rules
+        run: |
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/monitoring:/etc/prometheus:ro" prom/prometheus:v3.5.0 check rules /etc/prometheus/alerts.yml
