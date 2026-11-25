@@ -1,0 +1,135 @@
+{
+  "title": "EVAP Operations",
+  "uid": "evap-operations",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "evap_active_workers",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "evap-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "evap_active_workers",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "evap_execution_jobs",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "evap-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "evap_execution_jobs",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "evap_test_executions",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "evap-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "evap_test_executions",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "evap_ai_drafts",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "evap-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "evap_ai_drafts",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "evap_expired_job_leases",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "evap-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "evap_expired_job_leases",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "evap_reconciliation_events",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "evap-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "evap_reconciliation_events",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
