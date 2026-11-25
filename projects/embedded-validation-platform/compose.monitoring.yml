@@ -17,6 +17,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set Grafana password}
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./monitoring/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/evap.yml:ro
       - ./monitoring/datasource.yml:/etc/grafana/provisioning/datasources/evap.yml:ro
 secrets:
   metrics_token:
