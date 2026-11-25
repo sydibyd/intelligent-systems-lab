@@ -16,3 +16,8 @@ groups:
         for: 5m
         labels:
           severity: warning
+      - alert: EVAPNoActiveWorkers
+        expr: evap_active_workers == 0
+        for: 2m
+        labels:
+          severity: critical
