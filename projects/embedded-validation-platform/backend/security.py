@@ -49,6 +49,12 @@ def allowed(role, method, path):
         return False
     if method in {"GET", "HEAD"}:
         return path.startswith("/api/")
+    if path.startswith("/api/ai-drafts"):
+        if method == "POST" and path == "/api/ai-drafts":
+            return role in HUMAN_WRITERS
+        if method == "PATCH":
+            return role in {"admin", "architect"}
+        return False
     if method == "POST" and path == "/api/jobs":
         return role in HUMAN_WRITERS | {"ci"}
     if method == "POST" and path == "/api/requirements/import":
