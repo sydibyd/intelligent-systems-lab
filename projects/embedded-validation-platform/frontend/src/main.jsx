@@ -1,3 +1,4 @@
+import {ExecutionQueue, AIStudio} from './IndustrialPanels.jsx';
 import {apiFetch, setToken} from './api.js';
 import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -43,8 +44,8 @@ function App(){
 
  const subs=['All',...new Set(reqs.map(r=>r.Subsystem).filter(Boolean))];
  const filtered=useMemo(()=>reqs.filter(r=>(sub==='All'||r.Subsystem===sub)&&Object.values(r).join(' ').toLowerCase().includes(q.toLowerCase())),[reqs,q,sub]);
- const menu=['Dashboard','Requirements','Test Cases','Test Executions','Test Campaigns','Traceability','Import History'];
- return <div className="layout"><aside><h2>EVAP</h2><small>VALIDATION PLATFORM</small><form onSubmit={e=>{e.preventDefault();connect()}}><input type="password" aria-label="API access token" placeholder="API access token" autoComplete="off" value={credential} onChange={e=>setCredential(e.target.value)}/><button type="submit">Connect</button><button type="button" onClick={()=>{setToken('');window.location.reload()}}>Disconnect</button></form><nav>{menu.map(m=><button className={page===m?'active':''} key={m} onClick={()=>setPage(m)}>{m}</button>)}</nav><footer>EVAP v0.4 · Development</footer></aside><main><header><div><h1>{page}</h1><p>A Universal CI/CD Validation Platform for Embedded Software Systems</p></div><span className="badge">● Development</span></header>
+ const menu=['Dashboard','Requirements','Test Cases','Test Executions','Test Campaigns','Traceability','Execution Queue','AI Test Studio','Import History'];
+ return <div className="layout"><aside><h2>EVAP</h2><small>VALIDATION PLATFORM</small><form onSubmit={e=>{e.preventDefault();connect()}}><input type="password" aria-label="API access token" placeholder="API access token" autoComplete="off" value={credential} onChange={e=>setCredential(e.target.value)}/><button type="submit">Connect</button><button type="button" onClick={()=>{setToken('');window.location.reload()}}>Disconnect</button></form><nav>{menu.map(m=><button className={page===m?'active':''} key={m} onClick={()=>setPage(m)}>{m}</button>)}</nav><footer>EVAP v1.0 · Development</footer></aside><main><header><div><h1>{page}</h1><p>A Universal CI/CD Validation Platform for Embedded Software Systems</p></div><span className="badge">● Development</span></header>
  {page==='Dashboard'&&<><div className="cards">{[['Requirements',stats.requirements??0],['Test Cases',stats.test_cases??0],['Mapped Requirements',stats.mapped_requirements??0],['Mapping Coverage',stats.mapping_coverage==null?'N/A':stats.mapping_coverage+'%'],
 ['Total Executions',stats.total_executions??0],
 ['Executed Test Cases',stats.executed_tests??0],
@@ -121,6 +122,8 @@ function App(){
  {page==='Test Campaigns'&&<TestCampaigns tests={tests} onCompleted={refresh}/>}
   {page==='Traceability'&&<section className="panel"><h2>Requirement → Test Mapping</h2><p>Mapping is not evidence of successful execution.</p><div className="tablewrap"><table><thead><tr><th>Requirement</th><th>Associated Tests</th><th>Mapping</th></tr></thead><tbody>{reqs.map(r=>{const linked=tests.filter(t=>t.Requirement_ID===r.Requirement_ID);return <tr key={r.Requirement_ID}><td>{r.Requirement_ID}</td><td>{linked.map(t=>t.Test_ID).join(', ')||'—'}</td><td>{linked.length?'Mapped':'Unmapped'}</td></tr>})}</tbody></table></div></section>}
  {page==='Import History'&&<section className="panel"><h2>Import History</h2><div className="tablewrap"><table><thead><tr><th>Filename</th><th>Requirements</th><th>Test Cases</th><th>Date</th></tr></thead><tbody>{imports.map(i=><tr key={i.id}><td>{i.filename}</td><td>{i.requirements_count}</td><td>{i.tests_count}</td><td>{new Date(i.imported_at).toLocaleString()}</td></tr>)}</tbody></table></div></section>}
+ {page==='Execution Queue'&&<ExecutionQueue tests={tests}/>}
+ {page==='AI Test Studio'&&<AIStudio requirements={reqs}/>}
  </main></div>
 }
 createRoot(document.getElementById('root')).render(<App/>);
