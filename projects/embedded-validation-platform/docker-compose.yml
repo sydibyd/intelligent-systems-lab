@@ -18,6 +18,13 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://evap:${DB_PASSWORD:-evap_dev}@db:5432/evap
+      EVAP_AUTH_MODE: ${EVAP_AUTH_MODE:-required}
+      EVAP_IDENTITIES_JSON: ${EVAP_IDENTITIES_JSON:-[]}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -25,6 +32,19 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  sil-worker:
+    build: ./backend
+    command: ["python", "-m", "execution_worker"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://evap:${DB_PASSWORD:-evap_dev}@db:5432/evap
+      EVAP_WORKER_ENVIRONMENT: SIL
+    volumes:
+      - ./test-runners/sil:/opt/evap/sil:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    stop_grace_period: 45s
   frontend:
     build: ./frontend
     restart: unless-stopped
