@@ -1,16 +1,19 @@
+import {apiFetch, setToken} from './api.js';
 import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
 import TestCampaigns from './TestCampaigns.jsx';
 function App(){
  const [page,setPage]=useState('Dashboard'),[stats,setStats]=useState({}),[reqs,setReqs]=useState([]),[tests,setTests]=useState([]),[imports,setImports]=useState([]),[q,setQ]=useState(''),[sub,setSub]=useState('All'),[selected,setSelected]=useState(null),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);
- const get=async path=>{const r=await fetch('/api/'+path);if(!r.ok)throw Error(await r.text());return r.json()};
+ const [credential,setCredential]=useState('');
+ const connect=async()=>{setToken(credential);setCredential('');try{await refresh();setMsg('Connected')}catch(e){setToken('');setMsg('Authentication failed')}};
+ const get=async path=>{const r=await apiFetch('/api/'+path);if(!r.ok)throw Error(await r.text());return r.json()};
  const refresh=async()=>{const [s,r,t,i]=await Promise.all(['dashboard','requirements','test-cases','imports'].map(get));setStats(s);setReqs(r);setTests(t);setImports(i);
  const h=await get('executions');
  setHistory(h);
  };
  useEffect(()=>{refresh().catch(e=>setMsg(e.message))},[]);
- const upload=async e=>{const file=e.target.files[0];if(!file)return;setBusy(true);setMsg('');try{const body=new FormData();body.append('file',file);const r=await fetch('/api/requirements/import',{method:'POST',body});const d=await r.json();if(!r.ok)throw Error(d.detail);await refresh();setMsg(`${d.imported} requirements and ${d.test_cases} test cases imported`)}catch(e){setMsg('Import error: '+e.message)}finally{setBusy(false);e.target.value=''}};
+ const upload=async e=>{const file=e.target.files[0];if(!file)return;setBusy(true);setMsg('');try{const body=new FormData();body.append('file',file);const r=await apiFetch('/api/requirements/import',{method:'POST',body});const d=await r.json();if(!r.ok)throw Error(d.detail);await refresh();setMsg(`${d.imported} requirements and ${d.test_cases} test cases imported`)}catch(e){setMsg('Import error: '+e.message)}finally{setBusy(false);e.target.value=''}};
  const [history,setHistory]=useState([]);
  const [running,setRunning]=useState(false);
  const [execution,setExecution]=useState(null);
@@ -19,7 +22,7 @@ function App(){
    setRunning(true);
    setMsg('');
    try {
-     const response=await fetch(
+     const response=await apiFetch(
        '/api/executions/'+encodeURIComponent(testId),
        {method:'POST'}
      );
@@ -41,7 +44,7 @@ function App(){
  const subs=['All',...new Set(reqs.map(r=>r.Subsystem).filter(Boolean))];
  const filtered=useMemo(()=>reqs.filter(r=>(sub==='All'||r.Subsystem===sub)&&Object.values(r).join(' ').toLowerCase().includes(q.toLowerCase())),[reqs,q,sub]);
  const menu=['Dashboard','Requirements','Test Cases','Test Executions','Test Campaigns','Traceability','Import History'];
- return <div className="layout"><aside><h2>EVAP</h2><small>VALIDATION PLATFORM</small><nav>{menu.map(m=><button className={page===m?'active':''} key={m} onClick={()=>setPage(m)}>{m}</button>)}</nav><footer>EVAP v0.4 · Development</footer></aside><main><header><div><h1>{page}</h1><p>A Universal CI/CD Validation Platform for Embedded Software Systems</p></div><span className="badge">● Development</span></header>
+ return <div className="layout"><aside><h2>EVAP</h2><small>VALIDATION PLATFORM</small><form onSubmit={e=>{e.preventDefault();connect()}}><input type="password" aria-label="API access token" placeholder="API access token" autoComplete="off" value={credential} onChange={e=>setCredential(e.target.value)}/><button type="submit">Connect</button><button type="button" onClick={()=>{setToken('');window.location.reload()}}>Disconnect</button></form><nav>{menu.map(m=><button className={page===m?'active':''} key={m} onClick={()=>setPage(m)}>{m}</button>)}</nav><footer>EVAP v0.4 · Development</footer></aside><main><header><div><h1>{page}</h1><p>A Universal CI/CD Validation Platform for Embedded Software Systems</p></div><span className="badge">● Development</span></header>
  {page==='Dashboard'&&<><div className="cards">{[['Requirements',stats.requirements??0],['Test Cases',stats.test_cases??0],['Mapped Requirements',stats.mapped_requirements??0],['Mapping Coverage',stats.mapping_coverage==null?'N/A':stats.mapping_coverage+'%'],
 ['Total Executions',stats.total_executions??0],
 ['Executed Test Cases',stats.executed_tests??0],
