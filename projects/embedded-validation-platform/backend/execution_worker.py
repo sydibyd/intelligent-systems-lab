@@ -59,6 +59,13 @@ class Worker:
     def run(self):
         while not self.stop.is_set():
             try:
+                with self.queue.connect() as conn:
+                    conn.execute("""
+                        INSERT INTO worker_heartbeats(worker_id,environment)
+                        VALUES (%s,'SIL') ON CONFLICT(worker_id)
+                        DO UPDATE SET last_seen=now()
+                    """, (self.worker_id,))
+                    conn.execute("DELETE FROM worker_heartbeats WHERE last_seen < now()-interval '7 days'")
                 if not self.cycle():
                     self.stop.wait(2)
             except Exception:
