@@ -3,9 +3,6 @@ import groovy.json.JsonOutput
 pipeline {
     agent any
 
-    triggers {
-        pollSCM('H/5 * * * *')
-    }
 
     parameters {
         choice(
@@ -25,6 +22,7 @@ pipeline {
     environment {
         EVAP_API_URL = 'http://backend:8000'
         EVAP_CI_INSTANCE = 'jenkins-local'
+        EVAP_API_TOKEN = credentials('evap-api-token')
     }
 
     options {
@@ -161,6 +159,7 @@ pipeline {
                             set -eu
 
                             export DATABASE_URL="postgresql://evap:evap@localhost:5432/evap"
+                            export EVAP_AUTH_MODE=development
                             export PYTHONDONTWRITEBYTECODE=1
                             export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 
@@ -218,7 +217,8 @@ EOF
         stage('EVAP Health Check') {
             steps {
                 sh '''
-                    curl --fail --silent --show-error \
+                    set +x
+                    curl --fail --silent --show-error -H "Authorization: Bearer $EVAP_API_TOKEN" \
                         --max-time 10 \
                         "$EVAP_API_URL/api/health"
                 '''
@@ -245,7 +245,8 @@ EOF
                     )
 
                     sh '''
-                        curl --fail --silent --show-error \
+                        set +x
+                    curl --fail --silent --show-error -H "Authorization: Bearer $EVAP_API_TOKEN" \
                             --max-time 180 \
                             -X POST \
                             -H "Content-Type: application/json" \
@@ -279,7 +280,8 @@ EOF
         stage('Collect Campaign Results') {
             steps {
                 sh '''
-                    curl --fail --silent --show-error \
+                    set +x
+                    curl --fail --silent --show-error -H "Authorization: Bearer $EVAP_API_TOKEN" \
                         --max-time 15 \
                         "$EVAP_API_URL/api/campaigns/$EVAP_CAMPAIGN_ID" \
                         -o evap-reports/campaign-details.json
@@ -503,7 +505,8 @@ EOF
         stage('Verify Dashboard API') {
             steps {
                 sh '''
-                    curl --fail --silent --show-error \
+                    set +x
+                    curl --fail --silent --show-error -H "Authorization: Bearer $EVAP_API_TOKEN" \
                         --max-time 10 \
                         "$EVAP_API_URL/api/dashboard" \
                         -o evap-reports/dashboard.json
