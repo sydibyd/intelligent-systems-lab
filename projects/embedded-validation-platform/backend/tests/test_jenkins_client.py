@@ -121,3 +121,78 @@ def test_invalid_building_state():
     })
 
     assert not client.get_build("EVAP", 42).reachable
+
+
+def test_metadata_preserved():
+    payload = {
+        "number": 42,
+        "building": False,
+        "result": "FAILURE",
+        "timestamp": 1700000000000,
+        "duration": 10000,
+        "url": "http://jenkins/job/EVAP/42/",
+        "actions": [
+            {
+                "lastBuiltRevision": {
+                    "SHA1": "a" * 40
+                }
+            }
+        ],
+    }
+
+    client = mock_client(payload)
+    state = client.get_build("EVAP", 42)
+
+    assert state.metadata == payload
+
+
+def test_metadata_requested():
+    from urllib.parse import urlsplit, parse_qs
+
+    client = mock_client({
+        "number": 42,
+        "building": False,
+        "result": "SUCCESS",
+    })
+
+    client.get_build("EVAP", 42)
+
+    request = client.opener.open.call_args.args[0]
+    query = parse_qs(urlsplit(request.full_url).query)
+
+    tree = query["tree"][0]
+
+    assert "timestamp" in tree
+    assert "duration" in tree
+    assert "url" in tree
+    assert "lastBuiltRevision[SHA1]" in tree
+
+
+def test_explicit_loopback_authentication():
+    client = JenkinsClient(
+        "http://127.0.0.1:8082",
+        "user",
+        "token",
+        allow_loopback_http=True,
+    )
+
+    assert "Authorization" in client.headers
+
+
+def test_loopback_authentication_disabled_by_default():
+    with pytest.raises(ValueError):
+        JenkinsClient(
+            "http://127.0.0.1:8082",
+            "user",
+            "token",
+        )
+
+
+def test_remote_http_exception_rejected():
+    with pytest.raises(ValueError):
+        JenkinsClient(
+            "http://jenkins:8080",
+            "user",
+            "token",
+            allow_loopback_http=True,
+        )

@@ -2,6 +2,8 @@ import psycopg
 from psycopg.rows import dict_row
 
 from jenkins_client import JenkinsState
+from build_identity import verify_build_identity
+from reconciliation import Decision
 from reconciliation import Action, evaluate_build
 
 
@@ -65,6 +67,8 @@ class ReconciliationService:
                 "pipeline_name",
                 "build_number",
                 "git_commit",
+                "build_url",
+                "created_at",
             ):
                 if current[field] != build[field]:
                     raise RuntimeError(
@@ -87,6 +91,24 @@ class ReconciliationService:
                 state.result,
                 active,
             )
+
+            if state.reachable and state.building is False:
+                verification = verify_build_identity(
+                    current,
+                    state.metadata or {},
+                )
+
+                if not verification.verified:
+                    decision = Decision(
+                        Action.DEFER,
+                        verification.reason,
+                    )
+
+                elif state.result == "INTERRUPTED":
+                    decision = Decision(
+                        Action.DEFER,
+                        "INVALID_JENKINS_RESULT",
+                    )
 
             applied = False
 

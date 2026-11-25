@@ -6,6 +6,7 @@ from urllib.request import (
     Request,
     build_opener,
     HTTPRedirectHandler,
+    ProxyHandler,
 )
 
 
@@ -20,6 +21,7 @@ class JenkinsState:
     building: bool | None = None
     result: str | None = None
     reason: str | None = None
+    metadata: dict | None = None
 
 
 class JenkinsClient:
@@ -30,6 +32,7 @@ class JenkinsClient:
         username: str = "",
         api_token: str = "",
         timeout: float = 5.0,
+        allow_loopback_http: bool = False,
     ):
         parsed = urlsplit(base_url)
 
@@ -46,7 +49,13 @@ class JenkinsClient:
         if bool(username) != bool(api_token):
             raise ValueError("Incomplete credentials")
 
-        if api_token and parsed.scheme != "https":
+        local_exception = (
+            allow_loopback_http
+            and parsed.scheme == "http"
+            and parsed.hostname in {"127.0.0.1", "::1"}
+        )
+
+        if api_token and parsed.scheme != "https" and not local_exception:
             raise ValueError("Credentials require HTTPS")
 
         if not 0 < timeout <= 30:
@@ -55,7 +64,7 @@ class JenkinsClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.headers = {"Accept": "application/json"}
-        self.opener = build_opener(RejectRedirects())
+        self.opener = build_opener(ProxyHandler({}), RejectRedirects())
 
         if username and api_token:
             credentials = f"{username}:{api_token}"
@@ -97,7 +106,7 @@ class JenkinsClient:
         )
 
         query = urlencode({
-            "tree": "number,building,result"
+            "tree": "number,building,result,timestamp,duration,url,actions[lastBuiltRevision[SHA1]]"
         })
 
         url = (
@@ -153,6 +162,7 @@ class JenkinsClient:
                 True,
                 building=building,
                 result=result,
+                metadata=data,
             )
 
         except Exception:
