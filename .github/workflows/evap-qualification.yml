@@ -59,3 +59,21 @@ jobs:
       - name: Validate monitoring rules
         run: |
           docker run --rm --entrypoint /bin/promtool -v "$PWD/monitoring:/etc/prometheus:ro" prom/prometheus:v3.5.0 check rules /etc/prometheus/alerts.yml
+      - name: Isolated Docker system smoke test
+        env:
+          EVAP_AUTH_MODE: development
+          DB_PASSWORD: ephemeral-ci-password
+          COMPOSE_PROJECT_NAME: evap-ci-smoke
+        run: |
+          docker compose up -d --build --wait --wait-timeout 180
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/health
+          curl --fail --silent --show-error http://127.0.0.1:8080/api/jobs
+          curl --fail --silent --show-error http://127.0.0.1:8080/api/ai-drafts
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/metrics | grep '^evap_execution_jobs'
+          docker compose exec -T sil-worker python -c 'import execution_worker'
+      - name: Collect smoke test logs
+        if: failure()
+        run: docker compose -p evap-ci-smoke logs --tail=100
+      - name: Remove isolated smoke test stack
+        if: always()
+        run: docker compose -p evap-ci-smoke down -v --remove-orphans
